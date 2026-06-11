@@ -1,0 +1,1648 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>リスナー管理</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Inter:wght@400;600;700&display=swap');
+
+  :root {
+    --bg: #fdf6fb;
+    --surface: #ffffff;
+    --surface2: #fce8f6;
+    --border: #f0c6e8;
+    --accent: #d966b0;
+    --accent2: #b07ed6;
+    --gold: #e8a020;
+    --green: #4caf8a;
+    --red: #e05555;
+    --text: #3a2040;
+    --muted: #b090b8;
+    --tab-h: 64px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: linear-gradient(160deg, #fdf2fb 0%, #f5eeff 50%, #fdf2fb 100%);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  header {
+    background: linear-gradient(135deg, #fff0fa 0%, #f5e6ff 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+    height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-dot {
+    width: 9px; height: 9px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 10px #f09ad0;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.85); }
+  }
+
+  .header-stats {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .stat-badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .stat-badge span { color: var(--text); font-weight: 600; }
+
+  /* Layout — desktop: sidebar | mobile: bottom tabs */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    height: calc(100dvh - 54px);
+  }
+
+  /* ── Desktop sidebar ── */
+  .sidebar {
+    width: 220px;
+    background: linear-gradient(180deg, #fff0fa 0%, #f8eeff 100%);
+    border-right: 1px solid var(--border);
+    padding: 16px 0;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+
+  .nav-section { padding: 0 10px; margin-bottom: 6px; }
+
+  .nav-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    padding: 0 8px;
+    margin-bottom: 4px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--muted);
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: linear-gradient(90deg, rgba(232,121,176,0.12), rgba(192,132,252,0.08)); color: var(--accent); border-radius: 8px; font-weight: 700; }
+  .nav-icon { font-size: 18px; width: 22px; text-align: center; }
+
+  .nav-count {
+    margin-left: auto;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: 11px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+  }
+
+  .nav-item.active .nav-count { background: rgba(179,136,255,0.2); }
+
+  /* ── Bottom tab bar (mobile only) ── */
+  .bottom-tabs {
+    display: none;
+  }
+
+  /* Content */
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── Mobile breakpoint ── */
+  @media (max-width: 600px) {
+    .sidebar { display: none; }
+
+    .main {
+      flex-direction: column;
+      height: calc(100dvh - 54px);
+    }
+
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 12px;
+      padding-bottom: calc(var(--tab-h) + 8px);
+    }
+
+    /* Bottom tab bar */
+    .bottom-tabs {
+      display: flex;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: var(--tab-h);
+      background: linear-gradient(135deg, #fff0fa 0%, #f5e6ff 100%);
+      border-top: 1px solid var(--border);
+      z-index: 100;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .tab-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 600;
+      transition: color 0.15s;
+      user-select: none;
+      padding-top: 6px;
+    }
+
+    .tab-item.active { color: var(--accent); }
+
+    .tab-icon {
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .tab-badge {
+      position: absolute;
+      top: 6px;
+      right: calc(50% - 18px);
+      background: var(--accent);
+      color: #0f0f14;
+      border-radius: 10px;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 5px;
+      min-width: 16px;
+      text-align: center;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .tab-item { position: relative; }
+
+    /* Compact header on mobile */
+    header { padding: 0 12px; height: 50px; }
+    .logo { font-size: 15px; }
+    .stat-badge { font-size: 11px; padding: 2px 8px; }
+    .main { height: calc(100dvh - 50px); }
+  }
+
+  /* Page header */
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+
+  .page-title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+
+  .page-sub {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px;
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn-primary { background: linear-gradient(135deg, #e879b0, #c084fc); color: #fff; box-shadow: 0 2px 10px rgba(217,102,176,0.3); }
+  .btn-primary:hover { background: linear-gradient(135deg, #d966a0, #a855f7); box-shadow: 0 4px 14px rgba(217,102,176,0.4); }
+  .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: rgba(255,82,82,0.1); color: var(--red); border: 1px solid rgba(255,82,82,0.2); }
+  .btn-danger:hover { background: rgba(255,82,82,0.2); }
+
+  /* Search bar */
+  .search-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .search-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 14px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--muted); }
+
+  /* Filters */
+  .filters {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .filters::-webkit-scrollbar { display: none; }
+
+  .filter-btn {
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-btn.active { background: linear-gradient(135deg, rgba(232,121,176,0.15), rgba(192,132,252,0.15)); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+
+  /* Listener cards */
+  .listener-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+
+  @media (max-width: 600px) {
+    .listener-grid {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .page-title { font-size: 18px; }
+    .filters { flex-wrap: nowrap; }
+  }
+
+  .listener-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .listener-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(217,102,176,0.15);
+  }
+
+  .listener-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #f472b6, #c084fc, #a78bfa);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .listener-card:hover::before { opacity: 1; }
+
+  .card-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .avatar {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 700;
+    flex-shrink: 0;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .card-name {
+    font-weight: 700;
+    font-size: 15px;
+    flex: 1;
+  }
+
+  .card-rank {
+    margin-left: auto;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .rank-40k { background: linear-gradient(135deg, #fff0c0, #ffe0f0); color: #b07000; border: 1px solid #f0c050; }
+  .rank-30k { background: rgba(255,200,50,0.15); color: #c08000; border: 1px solid rgba(255,200,50,0.4); }
+  .rank-25k { background: rgba(192,132,252,0.18); color: #7c3aed; border: 1px solid rgba(192,132,252,0.4); }
+  .rank-20k { background: rgba(217,102,176,0.15); color: #be185d; border: 1px solid rgba(217,102,176,0.35); }
+  .rank-15k { background: rgba(76,175,138,0.12); color: #0f7a5a; border: 1px solid rgba(76,175,138,0.3); }
+  .rank-10k { background: rgba(99,179,237,0.15); color: #1a6fa8; border: 1px solid rgba(99,179,237,0.35); }
+  .rank-5k  { background: rgba(251,146,60,0.15); color: #c2410c; border: 1px solid rgba(251,146,60,0.35); }
+  .rank-0k  { background: rgba(220,210,225,0.4); color: #9090a8; border: 1px solid rgba(200,190,210,0.5); }
+  .rank-1k  { background: rgba(240,198,232,0.3); color: #9d5a8a; border: 1px solid rgba(240,198,232,0.6); }
+
+  .card-stats {
+    display: flex;
+    gap: 0;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+
+  .card-stat { flex: 1; text-align: center; }
+  .card-stat + .card-stat { border-left: 1px solid var(--border); }
+
+  .stat-val {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text);
+  }
+
+  .stat-lbl {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Gift list */
+  .gift-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .gift-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: border-color 0.15s;
+  }
+
+  .gift-item:hover { border-color: #f0a0d8; box-shadow: 0 4px 12px rgba(217,102,176,0.1); }
+  .gift-emoji { font-size: 22px; width: 32px; text-align: center; flex-shrink: 0; }
+  .gift-info { flex: 1; min-width: 0; }
+
+  .gift-from {
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .gift-date { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .gift-amount {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--gold);
+    flex-shrink: 0;
+  }
+
+  .gift-amount.pts::after { content: 'pt'; font-size: 11px; color: var(--muted); margin-left: 2px; }
+
+  /* Region page */
+  .region-group { margin-bottom: 12px; }
+
+  .region-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.15s;
+  }
+
+  .region-header:hover { border-color: #e879b0; background: linear-gradient(90deg, #fff0fa, #f5e6ff); }
+  .region-group.open .region-header { border-radius: 10px 10px 0 0; border-color: var(--accent); }
+
+  .region-flag { font-size: 20px; }
+  .region-name { font-weight: 700; font-size: 14px; flex: 1; }
+
+  .region-count {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1px 10px;
+    font-size: 11px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .region-chevron { color: var(--muted); font-size: 11px; transition: transform 0.2s; }
+  .region-group.open .region-chevron { transform: rotate(180deg); }
+
+  .region-listeners {
+    display: none;
+    border: 1px solid var(--accent);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    overflow: hidden;
+  }
+
+  .region-group.open .region-listeners { display: block; }
+
+  .region-listener-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .region-listener-row:hover { background: var(--surface2); }
+  .region-listener-name { flex: 1; font-size: 14px; font-weight: 600; }
+  .region-listener-pts { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--gold); font-weight: 600; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+  }
+
+  @media (min-width: 601px) {
+    .modal-overlay { align-items: center; padding: 20px; }
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: linear-gradient(160deg, #fff8fd 0%, #f8f0ff 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+    width: 100%;
+    max-height: 90dvh;
+    overflow-y: auto;
+  }
+
+  @media (min-width: 601px) {
+    .modal {
+      border-radius: 16px;
+      width: 460px;
+      padding: 24px;
+      max-height: 85vh;
+    }
+  }
+
+  /* Modal drag indicator on mobile */
+  .modal::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    background: linear-gradient(90deg, #f0a0d8, #c8a0f0);
+    border-radius: 2px;
+    margin: 0 auto 16px;
+  }
+
+  @media (min-width: 601px) {
+    .modal::before { display: none; }
+  }
+
+  .modal-title {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+
+  .form-group { margin-bottom: 14px; }
+
+  .form-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 5px;
+  }
+
+  .form-input, .form-select, .form-textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-size: 16px; /* 16px prevents iOS zoom */
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+    -webkit-appearance: none;
+  }
+
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+  .form-select option { background: var(--surface2); }
+  .form-textarea { resize: vertical; min-height: 80px; }
+
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 16px;
+  }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 50px 20px; color: var(--muted); }
+  .empty-icon { font-size: 44px; margin-bottom: 10px; }
+  .empty-text { font-size: 14px; }
+
+  /* Detail panel */
+  .detail-section { margin-bottom: 18px; }
+
+  .detail-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .detail-value { font-size: 14px; line-height: 1.6; }
+
+  .tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  .tag {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .mini-history {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+
+  .mini-item {
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mini-item-icon { font-size: 14px; }
+  .mini-item-info { flex: 1; min-width: 0; }
+  .mini-item-main { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mini-item-date { color: var(--muted); font-size: 11px; }
+  .mini-item-amount { font-family: 'Inter', sans-serif; font-weight: 700; color: var(--gold); flex-shrink: 0; }
+
+  /* Log page */
+  .log-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .log-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    transition: border-color 0.15s;
+  }
+
+  .log-item:hover { border-color: var(--accent); }
+
+  .log-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+
+  .log-name { font-weight: 700; font-size: 14px; flex: 1; }
+  .log-date { font-size: 11px; color: var(--muted); }
+  .log-coins {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--gold);
+  }
+  .log-coins::after { content: 'コイン'; font-size: 10px; color: var(--muted); margin-left: 2px; }
+
+  .log-memo {
+    font-size: 12px;
+    color: #b0b0cc;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* Stats page */
+  .stats-month-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+  }
+
+  .month-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 18px;
+    width: 32px; height: 32px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.15s;
+    flex-shrink: 0;
+  }
+
+  .month-btn:hover { border-color: var(--accent); }
+  .month-label { flex: 1; text-align: center; font-weight: 700; font-size: 15px; }
+
+  .stats-total {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .stats-total-card {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+  }
+
+  .stats-total-val {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--gold);
+  }
+
+  .stats-total-lbl { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  /* Bar chart */
+  .chart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 18px;
+  }
+
+  .chart-title { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 12px; letter-spacing: 0.5px; text-transform: uppercase; }
+
+  .chart-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 80px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .chart-bars::-webkit-scrollbar { display: none; }
+
+  .chart-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+    min-width: 28px;
+  }
+
+  .chart-bar {
+    width: 20px;
+    background: linear-gradient(to top, #e879b0, #c084fc);
+    border-radius: 3px 3px 0 0;
+    min-height: 2px;
+    transition: height 0.3s;
+  }
+
+  .chart-bar-lbl { font-size: 9px; color: var(--muted); font-family: 'Inter', sans-serif; }
+
+  /* Ranking */
+  .ranking-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .ranking-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ranking-num {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    width: 24px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .ranking-num.gold { color: var(--gold); }
+  .ranking-num.silver { color: #b0bec5; }
+  .ranking-num.bronze { color: #a0826d; }
+
+  .ranking-name { flex: 1; font-weight: 600; font-size: 14px; }
+
+  .ranking-bar-wrap { flex: 2; }
+
+  .ranking-bar-bg {
+    background: var(--surface2);
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+  }
+
+  .ranking-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #f472b6, #c084fc, #a78bfa);
+    border-radius: 4px;
+    transition: width 0.4s;
+  }
+
+  .ranking-coins {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--gold);
+    flex-shrink: 0;
+    min-width: 60px;
+    text-align: right;
+  }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    🐰 LISTENER
+  </div>
+  <div class="header-stats">
+    <div class="stat-badge">リスナー <span id="hdr-listeners">0</span></div>
+    <div class="stat-badge">ギフト合計 <span id="hdr-total">0</span>pt</div>
+  </div>
+</header>
+
+<div class="main">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="nav-section">
+      <div class="nav-label">メニュー</div>
+      <div class="nav-item active" onclick="switchPage('listeners')">
+        <span class="nav-icon">👥</span> リスナー
+        <span class="nav-count" id="cnt-listeners">0</span>
+      </div>
+      <div class="nav-item" onclick="switchPage('gifts')">
+        <span class="nav-icon">🎁</span> ギフト記録
+        <span class="nav-count" id="cnt-gifts">0</span>
+      </div>
+      <div class="nav-item" onclick="switchPage('regions')">
+        <span class="nav-icon">🗾</span> 出身地
+        <span class="nav-count" id="cnt-regions">0</span>
+      </div>
+      <div class="nav-item" onclick="switchPage('logs')">
+        <span class="nav-icon">📝</span> 配信ログ
+        <span class="nav-count" id="cnt-logs">0</span>
+      </div>
+      <div class="nav-item" onclick="switchPage('stats')">
+        <span class="nav-icon">📊</span> 月間集計
+        <span class="nav-count" id="cnt-stats">0</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- Listeners Page -->
+    <div class="page active" id="page-listeners">
+      <div class="page-header">
+        <div>
+          <div class="page-title">リスナー一覧</div>
+          <div class="page-sub">登録したリスナーを管理</div>
+        </div>
+        <button class="btn btn-primary" onclick="openAddListener()">＋ 追加</button>
+      </div>
+      <div class="search-bar">
+        <input class="search-input" id="listener-search" placeholder="名前や備考で検索…" oninput="renderListeners()">
+      </div>
+      <div class="filters" id="rank-filters">
+        <button class="filter-btn active" onclick="setFilter('all')">すべて</button>
+        <button class="filter-btn" onclick="setFilter('40k')">40k</button>
+        <button class="filter-btn" onclick="setFilter('30k')">30k</button>
+        <button class="filter-btn" onclick="setFilter('25k')">25k</button>
+        <button class="filter-btn" onclick="setFilter('20k')">20k</button>
+        <button class="filter-btn" onclick="setFilter('15k')">15k</button>
+        <button class="filter-btn" onclick="setFilter('10k')">10k</button>
+        <button class="filter-btn" onclick="setFilter('5k')">5k</button>
+        <button class="filter-btn" onclick="setFilter('1k')">1k</button>
+        <button class="filter-btn" onclick="setFilter('0k')">0k</button>
+      </div>
+      <div class="listener-grid" id="listener-grid"></div>
+    </div>
+
+    <!-- Gifts Page -->
+    <div class="page" id="page-gifts">
+      <div class="page-header">
+        <div>
+          <div class="page-title">ギフト・投げ銭記録</div>
+          <div class="page-sub">もらったギフトの履歴</div>
+        </div>
+        <button class="btn btn-primary" onclick="openAddGift()">＋ 記録</button>
+      </div>
+      <div class="search-bar">
+        <input class="search-input" id="gift-search" placeholder="名前や内容で検索…" oninput="renderGifts()">
+      </div>
+      <div class="gift-list" id="gift-list"></div>
+    </div>
+
+    <!-- Regions Page -->
+    <div class="page" id="page-regions">
+      <div class="page-header">
+        <div>
+          <div class="page-title">出身地別</div>
+          <div class="page-sub">都道府県・地域ごとのリスナー</div>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input class="search-input" id="region-search" placeholder="地域や名前で検索…" oninput="renderRegions()">
+      </div>
+      <div id="region-list"></div>
+    </div>
+
+
+    <!-- Log Page -->
+    <div class="page" id="page-logs">
+      <div class="page-header">
+        <div>
+          <div class="page-title">配信ログ</div>
+          <div class="page-sub">日ごとのコイン・会話メモ</div>
+        </div>
+        <button class="btn btn-primary" onclick="openAddLog()">＋ 記録</button>
+      </div>
+      <div class="search-bar">
+        <input class="search-input" id="log-search" placeholder="名前やメモで検索…" oninput="renderLogs()">
+      </div>
+      <div class="log-list" id="log-list"></div>
+    </div>
+
+    <!-- Stats Page -->
+    <div class="page" id="page-stats">
+      <div class="page-header">
+        <div>
+          <div class="page-title">月間集計</div>
+          <div class="page-sub">リスナー別・日別コイン集計</div>
+        </div>
+      </div>
+      <div class="stats-month-selector">
+        <button class="month-btn" onclick="changeMonth(-1)">‹</button>
+        <div class="month-label" id="stats-month-label"></div>
+        <button class="month-btn" onclick="changeMonth(1)">›</button>
+      </div>
+      <div class="stats-total" id="stats-total"></div>
+      <div class="chart-wrap">
+        <div class="chart-title">日別コイン推移</div>
+        <div class="chart-bars" id="stats-chart"></div>
+      </div>
+      <div class="chart-title" style="padding:0 2px;margin-bottom:10px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;">リスナー別ランキング</div>
+      <div class="ranking-list" id="stats-ranking"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Listener Modal -->
+<div class="modal-overlay" id="modal-listener">
+  <div class="modal">
+    <div class="modal-title" id="listener-modal-title">リスナーを追加</div>
+    <div class="form-group">
+      <label class="form-label">名前</label>
+      <input class="form-input" id="l-name" placeholder="リスナー名">
+    </div>
+    <div class="form-group">
+      <label class="form-label">フォロワー数帯</label>
+      <select class="form-select" id="l-rank">
+        <option value="0k">0k（一見さん・休眠）</option>
+        <option value="1k">1k（〜1,000）</option>
+        <option value="5k">5k（〜5,000）</option>
+        <option value="10k">10k（〜10,000）</option>
+        <option value="15k">15k（〜15,000）</option>
+        <option value="20k">20k（〜20,000）</option>
+        <option value="25k">25k（〜25,000）</option>
+        <option value="30k">30k（〜30,000）</option>
+        <option value="40k">40k（40,000〜）</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">出身地</label>
+      <select class="form-select" id="l-region">
+        <option value="">未設定</option>
+        <optgroup label="北海道・東北">
+          <option value="北海道">🏔 北海道</option>
+          <option value="青森">🍎 青森</option>
+          <option value="岩手">🐴 岩手</option>
+          <option value="宮城">🌸 宮城</option>
+          <option value="秋田">🌾 秋田</option>
+          <option value="山形">🍒 山形</option>
+          <option value="福島">🍑 福島</option>
+        </optgroup>
+        <optgroup label="関東">
+          <option value="茨城">🌊 茨城</option>
+          <option value="栃木">🍓 栃木</option>
+          <option value="群馬">🏔 群馬</option>
+          <option value="埼玉">🌻 埼玉</option>
+          <option value="千葉">🥜 千葉</option>
+          <option value="東京">🗼 東京</option>
+          <option value="神奈川">⚓ 神奈川</option>
+        </optgroup>
+        <optgroup label="中部">
+          <option value="新潟">🌾 新潟</option>
+          <option value="富山">🦀 富山</option>
+          <option value="石川">🦀 石川</option>
+          <option value="福井">🦕 福井</option>
+          <option value="山梨">🍇 山梨</option>
+          <option value="長野">🏔 長野</option>
+          <option value="岐阜">🏯 岐阜</option>
+          <option value="静岡">🗻 静岡</option>
+          <option value="愛知">🏭 愛知</option>
+        </optgroup>
+        <optgroup label="近畿">
+          <option value="三重">🦞 三重</option>
+          <option value="滋賀">🏖 滋賀</option>
+          <option value="京都">⛩ 京都</option>
+          <option value="大阪">🏙 大阪</option>
+          <option value="兵庫">⚓ 兵庫</option>
+          <option value="奈良">🦌 奈良</option>
+          <option value="和歌山">🍊 和歌山</option>
+        </optgroup>
+        <optgroup label="中国・四国">
+          <option value="鳥取">🦀 鳥取</option>
+          <option value="島根">⛩ 島根</option>
+          <option value="岡山">🍑 岡山</option>
+          <option value="広島">🏯 広島</option>
+          <option value="山口">🐡 山口</option>
+          <option value="徳島">🌀 徳島</option>
+          <option value="香川">🍜 香川</option>
+          <option value="愛媛">🍊 愛媛</option>
+          <option value="高知">🐟 高知</option>
+        </optgroup>
+        <optgroup label="九州・沖縄">
+          <option value="福岡">🍜 福岡</option>
+          <option value="佐賀">🏺 佐賀</option>
+          <option value="長崎">⛪ 長崎</option>
+          <option value="熊本">🐻 熊本</option>
+          <option value="大分">♨ 大分</option>
+          <option value="宮崎">🌴 宮崎</option>
+          <option value="鹿児島">🌋 鹿児島</option>
+          <option value="沖縄">🌺 沖縄</option>
+        </optgroup>
+        <optgroup label="海外">
+          <option value="海外">🌍 海外</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">メモ</label>
+      <textarea class="form-textarea" id="l-memo" placeholder="好きなコンテンツや特徴など"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-listener')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveListener()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Listener Detail Modal -->
+<div class="modal-overlay" id="modal-detail">
+  <div class="modal" id="detail-content"></div>
+</div>
+
+<!-- Add Gift Modal -->
+<div class="modal-overlay" id="modal-gift">
+  <div class="modal">
+    <div class="modal-title">ギフトを記録</div>
+    <div class="form-group">
+      <label class="form-label">リスナー</label>
+      <select class="form-select" id="g-listener"></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ギフト種類</label>
+      <select class="form-select" id="g-type">
+        <option value="🌸">🌸 フラワー</option>
+        <option value="💎">💎 ダイヤ</option>
+        <option value="🚀">🚀 ロケット</option>
+        <option value="👑">👑 クラウン</option>
+        <option value="🎵">🎵 音符</option>
+        <option value="❤️">❤️ ハート</option>
+        <option value="⭐">⭐ スター</option>
+        <option value="🪙">🪙 コイン</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ポイント数</label>
+      <input class="form-input" id="g-amount" type="number" min="1" placeholder="500">
+    </div>
+    <div class="form-group">
+      <label class="form-label">日付</label>
+      <input class="form-input" id="g-date" type="date">
+    </div>
+    <div class="form-group">
+      <label class="form-label">メモ（任意）</label>
+      <input class="form-input" id="g-memo" placeholder="配信タイトルなど">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-gift')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveGift()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Log Modal -->
+<div class="modal-overlay" id="modal-log">
+  <div class="modal">
+    <div class="modal-title">配信ログを記録</div>
+    <div class="form-group">
+      <label class="form-label">リスナー</label>
+      <select class="form-select" id="log-listener"></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">コイン数</label>
+      <input class="form-input" id="log-coins" type="number" min="0" placeholder="100">
+    </div>
+    <div class="form-group">
+      <label class="form-label">ランク帯（任意）</label>
+      <select class="form-select" id="log-rank">
+        <option value="">変更なし</option>
+        <option value="0k">0k（一見さん・休眠）</option>
+        <option value="1k">1k</option>
+        <option value="5k">5k</option>
+        <option value="10k">10k</option>
+        <option value="15k">15k</option>
+        <option value="20k">20k</option>
+        <option value="25k">25k</option>
+        <option value="30k">30k</option>
+        <option value="40k">40k</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">日付</label>
+      <input class="form-input" id="log-date" type="date">
+    </div>
+    <div class="form-group">
+      <label class="form-label">会話メモ</label>
+      <textarea class="form-textarea" id="log-memo" placeholder="今日話したこと、リアクションなど…" style="min-height:100px"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-log')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveLog()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom tab bar (mobile) -->
+<div class="bottom-tabs">
+  <div class="tab-item active" id="tab-listeners" onclick="switchPage('listeners')">
+    <span class="tab-icon">👥</span>
+    <span>リスナー</span>
+    <span class="tab-badge" id="tbadge-listeners"></span>
+  </div>
+  <div class="tab-item" id="tab-gifts" onclick="switchPage('gifts')">
+    <span class="tab-icon">🎁</span>
+    <span>ギフト</span>
+    <span class="tab-badge" id="tbadge-gifts"></span>
+  </div>
+  <div class="tab-item" id="tab-regions" onclick="switchPage('regions')">
+    <span class="tab-icon">🗾</span>
+    <span>出身地</span>
+    <span class="tab-badge" id="tbadge-regions"></span>
+  </div>
+  <div class="tab-item" id="tab-logs" onclick="switchPage('logs')">
+    <span class="tab-icon">📝</span>
+    <span>ログ</span>
+    <span class="tab-badge" id="tbadge-logs"></span>
+  </div>
+  <div class="tab-item" id="tab-stats" onclick="switchPage('stats')">
+    <span class="tab-icon">📊</span>
+    <span>集計</span>
+    <span class="tab-badge" id="tbadge-stats"></span>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────
+let listeners = JSON.parse(localStorage.getItem('listeners') || '[]');
+let gifts = JSON.parse(localStorage.getItem('gifts') || '[]');
+let logs = JSON.parse(localStorage.getItem('logs') || '[]');
+let statsYear = new Date().getFullYear();
+let statsMonth = new Date().getMonth() + 1;
+let editingListenerId = null;
+let rankFilter = 'all';
+
+const COLORS = ['#b388ff','#ea80fc','#69f0ae','#ffd54f','#ff6e40','#40c4ff','#f06292','#aed581'];
+
+const REGION_EMOJI = {
+  '北海道':'🏔','青森':'🍎','岩手':'🐴','宮城':'🌸','秋田':'🌾','山形':'🍒','福島':'🍑',
+  '茨城':'🌊','栃木':'🍓','群馬':'🏔','埼玉':'🌻','千葉':'🥜','東京':'🗼','神奈川':'⚓',
+  '新潟':'🌾','富山':'🦀','石川':'🦀','福井':'🦕','山梨':'🍇','長野':'🏔','岐阜':'🏯','静岡':'🗻','愛知':'🏭',
+  '三重':'🦞','滋賀':'🏖','京都':'⛩','大阪':'🏙','兵庫':'⚓','奈良':'🦌','和歌山':'🍊',
+  '鳥取':'🦀','島根':'⛩','岡山':'🍑','広島':'🏯','山口':'🐡','徳島':'🌀','香川':'🍜','愛媛':'🍊','高知':'🐟',
+  '福岡':'🍜','佐賀':'🏺','長崎':'⛪','熊本':'🐻','大分':'♨','宮崎':'🌴','鹿児島':'🌋','沖縄':'🌺',
+  '海外':'🌍','未設定':'❓'
+};
+
+function save() {
+  localStorage.setItem('listeners', JSON.stringify(listeners));
+  localStorage.setItem('gifts', JSON.stringify(gifts));
+  localStorage.setItem('logs', JSON.stringify(logs));
+  updateHeader();
+  updateCounts();
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+function color(name) {
+  let h = 0;
+  for (let c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff;
+  return COLORS[Math.abs(h) % COLORS.length];
+}
+
+function initial(name) { return name ? name[0].toUpperCase() : '?'; }
+
+function formatDate(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('ja-JP', { month:'short', day:'numeric' });
+}
+
+function totalGifts(listenerId) {
+  return gifts.filter(g => g.listenerId === listenerId).reduce((s, g) => s + (g.amount || 0), 0);
+}
+
+// ── Header & counts ─────────────────────────────────
+function updateHeader() {
+  document.getElementById('hdr-listeners').textContent = listeners.length;
+  document.getElementById('hdr-total').textContent = gifts.reduce((s,g) => s + (g.amount||0), 0).toLocaleString();
+}
+
+function updateCounts() {
+  const regionSet = new Set(listeners.map(l => l.region || '未設定'));
+  document.getElementById('cnt-listeners').textContent = listeners.length;
+  document.getElementById('cnt-gifts').textContent = gifts.length;
+  document.getElementById('cnt-regions').textContent = regionSet.size;
+  const cntLogs = document.getElementById('cnt-logs');
+  const cntStats = document.getElementById('cnt-stats');
+  if (cntLogs) cntLogs.textContent = logs.length;
+  if (cntStats) cntStats.textContent = statsMonth + '月';
+  const bl = document.getElementById('tbadge-listeners');
+  const bg = document.getElementById('tbadge-gifts');
+  const br = document.getElementById('tbadge-regions');
+  const blo = document.getElementById('tbadge-logs');
+  const bst = document.getElementById('tbadge-stats');
+  if (bl) bl.textContent = listeners.length || '';
+  if (bg) bg.textContent = gifts.length || '';
+  if (br) br.textContent = regionSet.size || '';
+  if (blo) blo.textContent = logs.length || '';
+  if (bst) bst.textContent = '';
+}
+
+// ── Navigation ──────────────────────────────────────
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  const navEl = document.querySelector('.nav-item[onclick="switchPage(\''+page+'\')"]');
+  if (navEl) navEl.classList.add('active');
+  const tabEl = document.getElementById('tab-' + page);
+  if (tabEl) tabEl.classList.add('active');
+  if (page === 'listeners') renderListeners();
+  if (page === 'gifts') renderGifts();
+  if (page === 'regions') renderRegions();
+  if (page === 'logs') renderLogs();
+  if (page === 'stats') renderStats();
+}
+
+// ── Rank filter ─────────────────────────────────────
+function setFilter(rank) {
+  rankFilter = rank;
+  event.target.closest('.filters').querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderListeners();
+}
+
+// ── Listeners ───────────────────────────────────────
+function renderListeners() {
+  const q = document.getElementById('listener-search').value.toLowerCase();
+  const grid = document.getElementById('listener-grid');
+  let list = listeners.filter(l => {
+    const matchRank = rankFilter === 'all' || l.rank === rankFilter;
+    const matchQ = !q || l.name.toLowerCase().includes(q) || (l.memo||'').toLowerCase().includes(q) || (l.region||'').toLowerCase().includes(q);
+    return matchRank && matchQ;
+  });
+  if (!list.length) {
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="empty-icon">👥</div><div class="empty-text">リスナーがいません<br><small>「＋ 追加」から登録しましょう</small></div></div>';
+    return;
+  }
+  grid.innerHTML = list.map(l => {
+    const col = color(l.name);
+    const rankCls = 'rank-' + (l.rank || '1k');
+    const pts = totalGifts(l.id);
+    const regionEmoji = REGION_EMOJI[l.region] || '';
+    return '<div class="listener-card" onclick="openDetail(\''+l.id+'\')"><div class="card-top"><div class="avatar" style="background:'+col+'22;color:'+col+'">'+initial(l.name)+'</div><div style="flex:1;min-width:0"><div class="card-name">'+l.name+'</div>'+(l.region?'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+regionEmoji+' '+l.region+'</div>':'')+'</div><div class="card-rank '+rankCls+'">'+(l.rank||'1k')+'</div></div><div class="card-stats"><div class="card-stat"><div class="stat-val">'+pts.toLocaleString()+'</div><div class="stat-lbl">ギフトpt</div></div><div class="card-stat"><div class="stat-val">'+(l.region?regionEmoji:'—')+'</div><div class="stat-lbl">出身地</div></div><div class="card-stat"><div class="stat-val">'+(l.rank||'1k')+'</div><div class="stat-lbl">フォロワー帯</div></div></div></div>';
+  }).join('');
+}
+
+function openAddListener() {
+  editingListenerId = null;
+  document.getElementById('listener-modal-title').textContent = 'リスナーを追加';
+  document.getElementById('l-name').value = '';
+  document.getElementById('l-memo').value = '';
+  document.getElementById('l-rank').value = '1k';
+  document.getElementById('l-region').value = '';
+  document.getElementById('modal-listener').classList.add('open');
+}
+
+function openEditListener(id) {
+  editingListenerId = id;
+  const l = listeners.find(x => x.id === id);
+  if (!l) return;
+  document.getElementById('listener-modal-title').textContent = 'リスナーを編集';
+  document.getElementById('l-name').value = l.name;
+  document.getElementById('l-rank').value = l.rank || '1k';
+  document.getElementById('l-region').value = l.region || '';
+  document.getElementById('l-memo').value = l.memo || '';
+  closeModal('modal-detail');
+  document.getElementById('modal-listener').classList.add('open');
+}
+
+function saveListener() {
+  const name = document.getElementById('l-name').value.trim();
+  if (!name) { alert('名前を入力してください'); return; }
+  const data = { name, rank: document.getElementById('l-rank').value, region: document.getElementById('l-region').value, memo: document.getElementById('l-memo').value.trim() };
+  if (editingListenerId) {
+    const idx = listeners.findIndex(x => x.id === editingListenerId);
+    listeners[idx] = { ...listeners[idx], ...data };
+  } else {
+    listeners.push({ id: uid(), ...data, createdAt: Date.now() });
+  }
+  save();
+  closeModal('modal-listener');
+  renderListeners();
+}
+
+function deleteListener(id) {
+  if (!confirm('このリスナーを削除しますか？')) return;
+  listeners = listeners.filter(l => l.id !== id);
+  gifts = gifts.filter(g => g.listenerId !== id);
+  logs = logs.filter(lo => lo.listenerId !== id);
+  save();
+  closeModal('modal-detail');
+  renderListeners();
+}
+
+function openDetail(id) {
+  const l = listeners.find(x => x.id === id);
+  if (!l) return;
+  const col = color(l.name);
+  const rankCls = 'rank-' + (l.rank || '1k');
+  const lGifts = gifts.filter(g => g.listenerId === id).sort((a,b) => b.createdAt - a.createdAt);
+  const regionEmoji = REGION_EMOJI[l.region] || '';
+  const giftRows = lGifts.length
+    ? lGifts.slice(0,10).map(g => '<div class="mini-item"><div class="mini-item-icon">'+g.type+'</div><div class="mini-item-info"><div class="mini-item-main">'+(g.memo||'ギフト')+'</div><div class="mini-item-date">'+formatDate(g.date)+'</div></div><div class="mini-item-amount">'+((g.amount||0).toLocaleString())+'pt</div></div>').join('')
+    : '<div style="color:var(--muted);font-size:13px;padding:8px">まだ記録なし</div>';
+  document.getElementById('detail-content').innerHTML =
+    '<div style="display:flex;align-items:center;gap:14px;margin-bottom:20px"><div class="avatar" style="width:52px;height:52px;font-size:21px;background:'+col+'22;color:'+col+'">'+initial(l.name)+'</div><div style="flex:1"><div style="font-size:19px;font-weight:700">'+l.name+'</div><div style="color:var(--muted);font-size:13px;margin-top:2px">'+(l.region ? regionEmoji+' '+l.region : '出身地未設定')+'</div></div><div class="card-rank '+rankCls+'">'+(l.rank||'1k')+'</div></div>'+
+    (l.memo ? '<div class="detail-section"><div class="detail-label">メモ</div><div class="detail-value">'+l.memo+'</div></div>' : '')+
+    '<div class="detail-section"><div class="detail-label">ギフト履歴（'+lGifts.length+'件）</div><div class="mini-history">'+giftRows+'</div></div>'+
+    '<div class="modal-actions"><button class="btn btn-danger" onclick="deleteListener(\''+id+'\')">削除</button><button class="btn btn-ghost" onclick="openEditListener(\''+id+'\')">編集</button><button class="btn btn-ghost" onclick="closeModal(\'modal-detail\')">閉じる</button></div>';
+  document.getElementById('modal-detail').classList.add('open');
+}
+
+// ── Gifts ────────────────────────────────────────────
+function renderGifts() {
+  const q = document.getElementById('gift-search').value.toLowerCase();
+  const list = document.getElementById('gift-list');
+  let data = gifts.filter(g => {
+    const l = listeners.find(x => x.id === g.listenerId);
+    const name = l ? l.name.toLowerCase() : '';
+    return !q || name.includes(q) || (g.memo||'').toLowerCase().includes(q);
+  }).sort((a,b) => b.createdAt - a.createdAt);
+  if (!data.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">🎁</div><div class="empty-text">ギフトの記録がありません</div></div>';
+    return;
+  }
+  list.innerHTML = data.map(g => {
+    const l = listeners.find(x => x.id === g.listenerId);
+    const name = l ? l.name : '不明';
+    const col = color(name);
+    return '<div class="gift-item"><div class="gift-emoji">'+(g.type||'🎁')+'</div><div class="gift-info"><div class="gift-from" style="color:'+col+'">'+name+'</div><div class="gift-date">'+formatDate(g.date)+(g.memo?' · '+g.memo:'')+'</div></div><div class="gift-amount pts">'+((g.amount||0).toLocaleString())+'</div></div>';
+  }).join('');
+}
+
+function openAddGift() {
+  const opts = listeners.length
+    ? listeners.map(l => '<option value="'+l.id+'">'+l.name+'</option>').join('')
+    : '<option value="">リスナーを先に追加してください</option>';
+  document.getElementById('g-listener').innerHTML = opts;
+  document.getElementById('g-amount').value = '';
+  document.getElementById('g-memo').value = '';
+  document.getElementById('g-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('modal-gift').classList.add('open');
+}
+
+function saveGift() {
+  const listenerId = document.getElementById('g-listener').value;
+  const amount = parseInt(document.getElementById('g-amount').value);
+  if (!listenerId) { alert('リスナーを選択してください'); return; }
+  if (!amount || amount < 1) { alert('ポイント数を入力してください'); return; }
+  gifts.push({ id: uid(), listenerId, type: document.getElementById('g-type').value, amount, date: document.getElementById('g-date').value, memo: document.getElementById('g-memo').value.trim(), createdAt: Date.now() });
+  save();
+  closeModal('modal-gift');
+  renderGifts();
+}
+
+// ── Regions ──────────────────────────────────────────
+function renderRegions() {
+  const q = document.getElementById('region-search').value.toLowerCase();
+  const container = document.getElementById('region-list');
+  const groups = {};
+  listeners.forEach(l => {
+    const region = l.region || '未設定';
+    if (!groups[region]) groups[region] = [];
+    groups[region].push(l);
+  });
+  const filteredGroups = {};
+  Object.entries(groups).forEach(([region, list]) => {
+    const filtered = list.filter(l => !q || region.toLowerCase().includes(q) || l.name.toLowerCase().includes(q));
+    if (filtered.length) filteredGroups[region] = filtered;
+  });
+  if (!Object.keys(filteredGroups).length) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">🗾</div><div class="empty-text">リスナーがいません<br><small>リスナー登録時に出身地を設定しましょう</small></div></div>';
+    return;
+  }
+  const sorted = Object.entries(filteredGroups).sort((a, b) => {
+    if (a[0] === '未設定') return 1;
+    if (b[0] === '未設定') return -1;
+    return b[1].length - a[1].length;
+  });
+  container.innerHTML = sorted.map(([region, list], i) => {
+    const emoji = REGION_EMOJI[region] || '📍';
+    const rows = list.map(l => {
+      const col = color(l.name);
+      const pts = totalGifts(l.id);
+      return '<div class="region-listener-row" onclick="openDetail(\''+l.id+'\')"><div class="avatar" style="width:30px;height:30px;font-size:13px;background:'+col+'22;color:'+col+'">'+initial(l.name)+'</div><div class="region-listener-name">'+l.name+'</div><div class="region-listener-pts">'+(pts > 0 ? pts.toLocaleString()+'pt' : '')+'</div></div>';
+    }).join('');
+    const groupId = 'rg-' + region.replace(/[^a-zA-Z0-9]/g, '_');
+    return '<div class="region-group '+(i===0?'open':'')+'" id="'+groupId+'"><div class="region-header" onclick="toggleRegion(\''+groupId+'\')"><span class="region-flag">'+emoji+'</span><span class="region-name">'+region+'</span><span class="region-count">'+list.length+'人</span><span class="region-chevron">▼</span></div><div class="region-listeners">'+rows+'</div></div>';
+  }).join('');
+}
+
+function toggleRegion(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+
+// ── Logs ─────────────────────────────────────────────
+function renderLogs() {
+  const q = document.getElementById('log-search').value.toLowerCase();
+  const container = document.getElementById('log-list');
+  let data = logs.filter(lo => {
+    const l = listeners.find(x => x.id === lo.listenerId);
+    const name = l ? l.name.toLowerCase() : '';
+    return !q || name.includes(q) || (lo.memo||'').toLowerCase().includes(q);
+  }).sort((a,b) => (b.date||'').localeCompare(a.date||'') || b.createdAt - a.createdAt);
+  if (!data.length) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">📝</div><div class="empty-text">配信ログがありません<br><small>「＋ 記録」から追加しましょう</small></div></div>';
+    return;
+  }
+  container.innerHTML = data.map(lo => {
+    const l = listeners.find(x => x.id === lo.listenerId);
+    const name = l ? l.name : '不明';
+    const col = color(name);
+    const rankBadge = lo.rank ? '<span class="card-rank rank-'+lo.rank+'" style="font-size:10px;padding:2px 7px">'+lo.rank+'</span>' : '';
+    return '<div class="log-item"><div class="log-header"><div class="avatar" style="width:28px;height:28px;font-size:12px;background:'+col+'22;color:'+col+'">'+initial(name)+'</div><div class="log-name" style="color:'+col+'">'+name+'</div>'+rankBadge+'<div class="log-date">'+lo.date+'</div><div class="log-coins">'+(lo.coins||0).toLocaleString()+'</div></div>'+(lo.memo?'<div class="log-memo">'+lo.memo+'</div>':'')+'</div>';
+  }).join('');
+}
+
+function openAddLog() {
+  const opts = listeners.length
+    ? listeners.map(l => '<option value="'+l.id+'">'+l.name+'</option>').join('')
+    : '<option value="">リスナーを先に追加してください</option>';
+  document.getElementById('log-listener').innerHTML = opts;
+  document.getElementById('log-coins').value = '';
+  document.getElementById('log-memo').value = '';
+  document.getElementById('log-rank').value = '';
+  document.getElementById('log-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('modal-log').classList.add('open');
+}
+
+function saveLog() {
+  const listenerId = document.getElementById('log-listener').value;
+  if (!listenerId) { alert('リスナーを選択してください'); return; }
+  const coins = parseInt(document.getElementById('log-coins').value) || 0;
+  const memo = document.getElementById('log-memo').value.trim();
+  const date = document.getElementById('log-date').value;
+  if (!date) { alert('日付を入力してください'); return; }
+  const logRank = document.getElementById('log-rank').value;
+  logs.push({ id: uid(), listenerId, coins, memo, date, rank: logRank, createdAt: Date.now() });
+  // Update listener's rank if specified
+  if (logRank) {
+    const idx = listeners.findIndex(x => x.id === listenerId);
+    if (idx !== -1) listeners[idx].rank = logRank;
+  }
+  save();
+  closeModal('modal-log');
+  renderLogs();
+}
+
+// ── Stats ─────────────────────────────────────────────
+function changeMonth(delta) {
+  statsMonth += delta;
+  if (statsMonth > 12) { statsMonth = 1; statsYear++; }
+  if (statsMonth < 1) { statsMonth = 12; statsYear--; }
+  renderStats();
+}
+
+function renderStats() {
+  const ym = statsYear + '-' + String(statsMonth).padStart(2,'0');
+  document.getElementById('stats-month-label').textContent = statsYear + '年 ' + statsMonth + '月';
+
+  // Filter logs for this month
+  const monthLogs = logs.filter(lo => (lo.date||'').startsWith(ym));
+
+  // Total coins & sessions
+  const totalCoins = monthLogs.reduce((s,lo) => s + (lo.coins||0), 0);
+  const totalSessions = monthLogs.length;
+
+  document.getElementById('stats-total').innerHTML =
+    '<div class="stats-total-card"><div class="stats-total-val">'+totalCoins.toLocaleString()+'</div><div class="stats-total-lbl">月間コイン合計</div></div>'+
+    '<div class="stats-total-card"><div class="stats-total-val" style="color:var(--accent)">'+totalSessions+'</div><div class="stats-total-lbl">配信セッション数</div></div>';
+
+  // Daily chart — days in month
+  const daysInMonth = new Date(statsYear, statsMonth, 0).getDate();
+  const dayTotals = {};
+  for (let d = 1; d <= daysInMonth; d++) dayTotals[d] = 0;
+  monthLogs.forEach(lo => {
+    const day = parseInt((lo.date||'').slice(8,10));
+    if (day) dayTotals[day] = (dayTotals[day]||0) + (lo.coins||0);
+  });
+  const maxDay = Math.max(...Object.values(dayTotals), 1);
+  const chartEl = document.getElementById('stats-chart');
+  chartEl.innerHTML = Array.from({length: daysInMonth}, (_,i) => {
+    const d = i+1;
+    const val = dayTotals[d]||0;
+    const h = Math.max(2, Math.round((val / maxDay) * 76));
+    return '<div class="chart-bar-wrap"><div class="chart-bar" style="height:'+h+'px" title="'+d+'日: '+val+'コイン"></div><div class="chart-bar-lbl">'+d+'</div></div>';
+  }).join('');
+
+  // Listener ranking
+  const listenerTotals = {};
+  monthLogs.forEach(lo => {
+    listenerTotals[lo.listenerId] = (listenerTotals[lo.listenerId]||0) + (lo.coins||0);
+  });
+  const ranked = Object.entries(listenerTotals).sort((a,b) => b[1]-a[1]);
+  const maxCoins = ranked.length ? ranked[0][1] : 1;
+
+  if (!ranked.length) {
+    document.getElementById('stats-ranking').innerHTML = '<div class="empty" style="padding:30px 20px"><div class="empty-icon">📊</div><div class="empty-text">この月のデータがありません</div></div>';
+    return;
+  }
+
+  const numColors = ['gold','silver','bronze'];
+  document.getElementById('stats-ranking').innerHTML = ranked.map(([lid, coins], i) => {
+    const l = listeners.find(x => x.id === lid);
+    const name = l ? l.name : '不明';
+    const col = color(name);
+    const pct = Math.round((coins / maxCoins) * 100);
+    const numCls = numColors[i] || '';
+    return '<div class="ranking-item"><div class="ranking-num '+numCls+'">'+(i+1)+'</div><div class="avatar" style="width:28px;height:28px;font-size:12px;flex-shrink:0;background:'+col+'22;color:'+col+'">'+initial(name)+'</div><div class="ranking-name">'+name+'</div><div class="ranking-bar-wrap"><div class="ranking-bar-bg"><div class="ranking-bar-fill" style="width:'+pct+'%"></div></div></div><div class="ranking-coins">'+coins.toLocaleString()+'</div></div>';
+  }).join('');
+}
+
+// ── Helpers ──────────────────────────────────────────
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+
+// ── Init ─────────────────────────────────────────────
+updateHeader();
+updateCounts();
+renderListeners();
+</script>
+</body>
+</html>
